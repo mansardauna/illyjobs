@@ -1,0 +1,66 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..800;1,9..40,400..800&family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-slate-50 text-slate-900 font-sans antialiased text-base min-h-screen flex flex-col;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading tracking-tight;
+  }
+}
+
+/* Enforced Button & Form Styles using Primary Green #6FBE44 */
+.btn-primary {
+  background-color: #6FBE44;
+  @apply inline-flex items-center justify-center px-5 py-3 text-white font-semibold text-base rounded-sm shadow-sm transition-colors cursor-pointer focus-visible:outline-none;
+}
+
+.btn-primary:hover {
+  background-color: #5fa838;
+}
+
+.btn-secondary {
+  @apply inline-flex items-center justify-center px-5 py-3 bg-white text-slate-900 font-semibold text-base border border-slate-300 rounded-sm shadow-sm transition-colors cursor-pointer hover:bg-slate-50 focus-visible:outline-none;
+}
+
+.btn-sm {
+  @apply px-3.5 py-2 text-sm font-semibold rounded-sm shadow-sm;
+}
+
+.card-sm {
+  @apply bg-white border border-slate-200 rounded-sm shadow-sm p-6;
+}
+
+.input-standard {
+  @apply w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-sm text-base text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none;
+}
+
+.input-standard:focus {
+  border-color: #6FBE44;
+}
+
+/* Custom Green Accent Helper Classes */
+.text-brand-green {
+  color: #6FBE44;
+}
+
+.bg-brand-green {
+  background-color: #6FBE44;
+}
+
+.bg-brand-light {
+  background-color: #f4faf0;
+}
+
+.border-brand-green {
+  border-color: #6FBE44;
+}
