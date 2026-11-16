@@ -18,9 +18,11 @@ export default function PricingPage() {
     }
     setUpgrading(true);
     setSuccessMsg("");
-    const ok = await upgradePlan(plan);
-    if (ok) {
+    const result = await upgradePlan(plan);
+    if (result.ok) {
       setSuccessMsg("Congratulations! Your account has been upgraded to Pro.");
+    } else {
+      alert(result.error || "Could not upgrade your plan. Please try again.");
     }
     setUpgrading(false);
   };
@@ -31,7 +33,7 @@ export default function PricingPage() {
       {/* Header */}
       <div className="text-center space-y-3 max-w-2xl mx-auto">
         <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-800 text-xs font-semibold rounded-sm border border-emerald-200">
-          <Sparkles className="w-4 h-4 text-emerald-600" />
+          <Sparkles className="w-4 h-4 text-emerald-700" />
           <span>SaaS Growth Plans for Ilorin</span>
         </div>
         <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
@@ -56,7 +58,7 @@ export default function PricingPage() {
             onClick={() => setTab("EMPLOYER")}
             className={`px-5 py-2.5 rounded-sm flex items-center gap-2 transition-all ${
               tab === "EMPLOYER"
-                ? "bg-emerald-600 text-white shadow-sm"
+                ? "bg-emerald-700 text-white shadow-sm"
                 : "text-slate-700 hover:text-slate-900"
             }`}
           >
@@ -68,7 +70,7 @@ export default function PricingPage() {
             onClick={() => setTab("SEEKER")}
             className={`px-5 py-2.5 rounded-sm flex items-center gap-2 transition-all ${
               tab === "SEEKER"
-                ? "bg-emerald-600 text-white shadow-sm"
+                ? "bg-emerald-700 text-white shadow-sm"
                 : "text-slate-700 hover:text-slate-900"
             }`}
           >
@@ -94,15 +96,15 @@ export default function PricingPage() {
 
               <ul className="space-y-3 pt-4 border-t border-slate-100 text-sm text-slate-700">
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <Check className="w-4 h-4 text-emerald-700 shrink-0" />
                   <span>Up to 2 active job listings</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <Check className="w-4 h-4 text-emerald-700 shrink-0" />
                   <span>Receive applications via Dashboard & Email</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <Check className="w-4 h-4 text-emerald-700 shrink-0" />
                   <span>Basic applicant inbox</span>
                 </li>
               </ul>
@@ -115,7 +117,7 @@ export default function PricingPage() {
 
           {/* Employer Pro */}
           <div className="bg-white border-2 border-emerald-600 rounded-sm p-8 shadow-md flex flex-col justify-between space-y-6 relative">
-            <div className="absolute -top-3.5 right-6 px-3 py-1 bg-emerald-600 text-white font-bold text-xs rounded-sm shadow-xs uppercase tracking-wider">
+            <div className="absolute -top-3.5 right-6 px-3 py-1 bg-emerald-700 text-white font-bold text-xs rounded-sm shadow-xs uppercase tracking-wider">
               Recommended
             </div>
 
@@ -129,23 +131,23 @@ export default function PricingPage() {
 
               <ul className="space-y-3 pt-4 border-t border-slate-100 text-sm text-slate-700">
                 <li className="flex items-center gap-2 font-semibold text-slate-900">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <Check className="w-4 h-4 text-emerald-700 shrink-0" />
                   <span>Unlimited job vacancy listings</span>
                 </li>
                 <li className="flex items-center gap-2 font-semibold text-slate-900">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <Check className="w-4 h-4 text-emerald-700 shrink-0" />
                   <span>"Urgent & Featured" top-of-search pins</span>
                 </li>
                 <li className="flex items-center gap-2 font-semibold text-emerald-800">
-                  <Zap className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <Zap className="w-4 h-4 text-emerald-700 shrink-0" />
                   <span>Direct Candidate Resume Database Access</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <Check className="w-4 h-4 text-emerald-700 shrink-0" />
                   <span>WhatsApp Broadcast alerts to Kwara talent pool</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <Check className="w-4 h-4 text-emerald-700 shrink-0" />
                   <span>ATS Candidate Kanban Pipeline & CSV Export</span>
                 </li>
               </ul>
@@ -184,15 +186,15 @@ export default function PricingPage() {
 
               <ul className="space-y-3 pt-4 border-t border-slate-100 text-sm text-slate-700">
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <Check className="w-4 h-4 text-emerald-700 shrink-0" />
                   <span>Unlimited job browsing & searching</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <Check className="w-4 h-4 text-emerald-700 shrink-0" />
                   <span>1-Click CV submission & WhatsApp apply</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <Check className="w-4 h-4 text-emerald-700 shrink-0" />
                   <span>1 Saved Resume CV</span>
                 </li>
               </ul>
@@ -205,7 +207,7 @@ export default function PricingPage() {
 
           {/* Seeker Pro */}
           <div className="bg-white border-2 border-emerald-600 rounded-sm p-8 shadow-md flex flex-col justify-between space-y-6 relative">
-            <div className="absolute -top-3.5 right-6 px-3 py-1 bg-emerald-600 text-white font-bold text-xs rounded-sm shadow-xs uppercase tracking-wider">
+            <div className="absolute -top-3.5 right-6 px-3 py-1 bg-emerald-700 text-white font-bold text-xs rounded-sm shadow-xs uppercase tracking-wider">
               Top Pick
             </div>
 
@@ -223,15 +225,15 @@ export default function PricingPage() {
                   <span>"Top Applicant" badge on employer dashboards</span>
                 </li>
                 <li className="flex items-center gap-2 font-semibold text-slate-900">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <Check className="w-4 h-4 text-emerald-700 shrink-0" />
                   <span>Instant WhatsApp alerts for new Tanke & GRA jobs</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <Check className="w-4 h-4 text-emerald-700 shrink-0" />
                   <span>Featured profile in Pro Employer Resume Search</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <Check className="w-4 h-4 text-emerald-700 shrink-0" />
                   <span>AI Resume Match Score report</span>
                 </li>
               </ul>

@@ -9,19 +9,20 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["Poppins", "system-ui", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
-        heading: ["'DM Sans'", "Poppins", "system-ui", "sans-serif"],
+        sans: ["var(--font-body)", "system-ui", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
+        heading: ["var(--font-heading)", "var(--font-body)", "system-ui", "sans-serif"],
       },
       colors: {
+        // Emerald scale. 500 is the primary brand colour and passes WCAG AA with white text.
         brand: {
-          50: "#f4faf0",
-          100: "#e5f4dc",
-          200: "#cce8bb",
-          500: "#6FBE44", // Primary Fresh Green requested by user
-          600: "#5fa838", // Hover state
-          700: "#4c8c2b",
-          800: "#3d7023",
-          900: "#2d541a",
+          50: "#ecfdf5",
+          100: "#d1fae5",
+          200: "#a7f3d0",
+          500: "#047857",
+          600: "#065f46",
+          700: "#065f46",
+          800: "#064e3b",
+          900: "#064e3b",
         },
       },
       borderRadius: {

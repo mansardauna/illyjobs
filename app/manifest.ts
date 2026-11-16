@@ -1,25 +1,18 @@
-import { MetadataRoute } from "next";
+import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Illy Jobs - Ilorin Job Portal",
+    name: "Illy Jobs - Jobs in Ilorin",
     short_name: "Illy Jobs",
-    description: "Hyper-Local Job Search & Talent Connection Platform for Ilorin City & Kwara State",
+    description: "Local job board for Ilorin and Kwara State.",
     start_url: "/",
     display: "standalone",
     background_color: "#FFFFFF",
-    theme_color: "#6FBE44",
+    theme_color: "#047857",
+    lang: "en-NG",
     icons: [
-      {
-        src: "/icon-192.png",
-        sizes: "192x192",
-        type: "image/png",
-      },
-      {
-        src: "/icon-512.png",
-        sizes: "512x512",
-        type: "image/png",
-      },
+      { src: "/icon", sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: "/apple-icon", sizes: "180x180", type: "image/png" },
     ],
   };
 }

@@ -4,10 +4,11 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/context/AuthContext";
 import { CheckCircle2, AlertCircle, ArrowRight, Lock, Sparkles } from "lucide-react";
-import { Job } from "@/lib/db/jobs";
+import SignInPrompt from "@/components/SignInPrompt";
+import { CATEGORIES, FREE_EMPLOYER_JOB_LIMIT, LOCATIONS } from "@/lib/constants";
 
 export default function PostJobPage() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
 
   const [title, setTitle] = useState("");
   const [company, setCompany] = useState(user?.companyName || "");
@@ -32,52 +33,31 @@ export default function PostJobPage() {
   const isProEmployer = user?.role === "EMPLOYER" && user?.planTier === "PRO";
   const isFreeEmployer = user?.role === "EMPLOYER" && user?.planTier === "FREE";
 
+  // Fill contact details from the account once it has loaded.
   useEffect(() => {
-    async function checkEmployerJobs() {
-      if (user?.companyName) {
-        try {
-          const res = await fetch("/api/jobs");
-          const data = await res.json();
-          if (data.success && Array.isArray(data.jobs)) {
-            const count = data.jobs.filter(
-              (j: Job) => j.company.toLowerCase() === user.companyName?.toLowerCase()
-            ).length;
-            setUserJobsCount(count);
-          }
-        } catch (e) {
-          console.error("Failed to check employer jobs:", e);
-        }
-      }
-    }
-    checkEmployerJobs();
+    if (!user) return;
+    setCompany((v) => v || user.companyName || "");
+    setWhatsappPhone((v) => v || user.phone || "");
+    setContactEmail((v) => v || user.email || "");
   }, [user]);
 
-  const isLimitReached = isFreeEmployer && userJobsCount >= 2;
+  // Live listings count, for the free plan limit.
+  useEffect(() => {
+    if (!user || user.role === "JOB_SEEKER") return;
+    fetch("/api/employer/jobs", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.jobs)) {
+          setUserJobsCount(data.jobs.filter((j: { active: boolean }) => j.active).length);
+        }
+      })
+      .catch((e) => console.error("Failed to check employer jobs:", e));
+  }, [user]);
 
-  const locations = [
-    "Tanke / Unilorin Axis",
-    "GRA",
-    "Taiwo / Post Office",
-    "Challenge / Unity",
-    "Fate / Airport Road",
-    "Asa Dam / Sawmill",
-    "Sango / Kulende",
-    "Ganmo / Kilanko",
-    "Oke-Oyi",
-    "Kwara Poly / Elekoyangan",
-    "Offa Garage",
-  ];
+  const isLimitReached = isFreeEmployer && userJobsCount >= FREE_EMPLOYER_JOB_LIMIT;
 
-  const categories = [
-    "Education / Teaching",
-    "Technology & Software",
-    "Retail & Sales",
-    "Healthcare & Nursing",
-    "Artisans & Technical Trades",
-    "Customer Service",
-    "Banking & Accounting",
-    "Hospitality & Catering",
-  ];
+  const locations = LOCATIONS;
+  const categories = CATEGORIES;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,6 +104,24 @@ export default function PostJobPage() {
     }
   };
 
+  if (loading) {
+    return <p role="status" className="p-12 text-center text-slate-700">Loading…</p>;
+  }
+  if (!user) {
+    return <SignInPrompt next="/post-job" message="Sign in or create a free employer account to post a job." />;
+  }
+  if (user.role === "JOB_SEEKER") {
+    return (
+      <div className="max-w-md mx-auto px-4 py-16 text-center space-y-3">
+        <h1 className="text-2xl font-extrabold text-slate-900">Employer account needed</h1>
+        <p className="text-slate-700">
+          You are signed in as a job seeker. To post vacancies, sign out and create an employer account.
+        </p>
+        <Link href="/jobs" className="btn-primary inline-flex">Browse jobs instead</Link>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-6">
       
@@ -157,8 +155,8 @@ export default function PostJobPage() {
       )}
 
       {successJobSlug ? (
-        <div className="bg-white border border-slate-200 rounded-sm p-8 shadow-sm text-center space-y-4">
-          <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+        <div role="status" className="bg-white border border-slate-200 rounded-sm p-8 shadow-sm text-center space-y-4">
+          <div className="w-14 h-14 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center mx-auto">
             <CheckCircle2 className="w-8 h-8" />
           </div>
           <h2 className="text-xl font-bold font-heading text-slate-900">Job Successfully Published!</h2>
@@ -173,14 +171,17 @@ export default function PostJobPage() {
             >
               View Published Vacancy →
             </Link>
+            <Link href="/dashboard" className="btn-secondary text-sm py-2.5">
+              Manage my jobs
+            </Link>
           </div>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-sm p-6 sm:p-8 shadow-sm space-y-6">
           
           {errorMsg && (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-sm text-sm text-rose-700 flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0" />
+            <div role="alert" className="p-3 bg-rose-50 border border-rose-200 rounded-sm text-sm text-rose-800 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
               <span>{errorMsg}</span>
             </div>
           )}
@@ -349,21 +350,22 @@ export default function PostJobPage() {
 
           {/* Pro Feature: Feature / Pin on Top */}
           {isProEmployer && (
-            <div className="p-4 bg-brand-light border border-brand-green rounded-sm flex items-center justify-between">
-              <div>
+            <label htmlFor="feature-job" className="p-4 bg-brand-light border border-brand-green rounded-sm flex items-center justify-between cursor-pointer">
+              <span>
                 <span className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-amber-500" />
-                  Feature & Pin this Job Listing
+                  <Sparkles className="w-4 h-4 text-amber-600" aria-hidden="true" />
+                  Feature and pin this job listing
                 </span>
-                <p className="text-xs text-slate-600">Pro Employers get top-of-search placement.</p>
-              </div>
+                <span className="block text-xs text-slate-700">Pro employers get top-of-search placement.</span>
+              </span>
               <input
+                id="feature-job"
                 type="checkbox"
                 checked={isFeatured}
                 onChange={(e) => setIsFeatured(e.target.checked)}
-                className="w-5 h-5 accent-emerald-600 cursor-pointer"
+                className="w-5 h-5 accent-emerald-700 cursor-pointer"
               />
-            </div>
+            </label>
           )}
 
           <div className="pt-4 border-t border-slate-100">

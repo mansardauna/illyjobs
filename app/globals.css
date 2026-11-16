@@ -1,8 +1,16 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..800;1,9..40,400..800&family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/*
+  Brand green is emerald-700 (#047857). White text on it, and it as text on
+  white, both pass WCAG AA (5.5:1). On dark backgrounds use .text-brand-on-dark.
+*/
+:root {
+  --brand: #047857;
+  --brand-hover: #065f46;
+  --brand-on-dark: #34d399;
+}
 
 @layer base {
   html {
@@ -18,18 +26,17 @@
   }
 }
 
-/* Enforced Button & Form Styles using Primary Green #6FBE44 */
 .btn-primary {
-  background-color: #6FBE44;
-  @apply inline-flex items-center justify-center px-5 py-3 text-white font-semibold text-base rounded-sm shadow-sm transition-colors cursor-pointer focus-visible:outline-none;
+  background-color: var(--brand);
+  @apply inline-flex items-center justify-center px-5 py-3 text-white font-semibold text-base rounded-sm shadow-sm transition-colors cursor-pointer;
 }
 
 .btn-primary:hover {
-  background-color: #5fa838;
+  background-color: var(--brand-hover);
 }
 
 .btn-secondary {
-  @apply inline-flex items-center justify-center px-5 py-3 bg-white text-slate-900 font-semibold text-base border border-slate-300 rounded-sm shadow-sm transition-colors cursor-pointer hover:bg-slate-50 focus-visible:outline-none;
+  @apply inline-flex items-center justify-center px-5 py-3 bg-white text-slate-900 font-semibold text-base border border-slate-300 rounded-sm shadow-sm transition-colors cursor-pointer hover:bg-slate-50;
 }
 
 .btn-sm {
@@ -41,26 +48,52 @@
 }
 
 .input-standard {
-  @apply w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-sm text-base text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none;
+  @apply w-full px-4 py-3 bg-slate-50 border border-slate-400 rounded-sm text-base text-slate-900 placeholder-slate-500 focus:bg-white;
 }
 
 .input-standard:focus {
-  border-color: #6FBE44;
+  border-color: var(--brand);
 }
 
-/* Custom Green Accent Helper Classes */
 .text-brand-green {
-  color: #6FBE44;
+  color: var(--brand);
+}
+
+.text-brand-on-dark {
+  color: var(--brand-on-dark);
 }
 
 .bg-brand-green {
-  background-color: #6FBE44;
+  background-color: var(--brand);
 }
 
 .bg-brand-light {
-  background-color: #f4faf0;
+  background-color: #ecfdf5;
 }
 
 .border-brand-green {
-  border-color: #6FBE44;
+  border-color: var(--brand);
+}
+
+/*
+  Keyboard focus indicator for every interactive element. Declared after the
+  utilities and marked important so per-element "focus:outline-none" classes
+  cannot remove it. The white halo keeps it visible on dark backgrounds.
+*/
+:where(a, button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 2px solid var(--brand) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 4px #ffffff !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

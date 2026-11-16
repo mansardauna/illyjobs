@@ -23,82 +23,15 @@ Currently, Illy Jobs uses a local `data/db.json` store with a decoupled Data Acc
 2. Select Region: **EU (Frankfurt)** or **EU (London)** for low latency to Nigeria.
 
 ### Step 1.2: Execute Production SQL Migration
-In the Supabase SQL Editor, run the following schema migration:
+In the Supabase SQL Editor, run [`supabase/schema.sql`](supabase/schema.sql). It creates the `users`, `jobs`, `applications` and `messages` tables and a private `resumes` storage bucket for CVs. Row Level Security is enabled with no policies, so only the server (service role key) can read or write them. The script is safe to re-run.
 
-```sql
--- Create Users Table
-CREATE TABLE public.users (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  email TEXT UNIQUE NOT NULL,
-  phone TEXT,
-  password_hash TEXT NOT NULL,
-  role TEXT DEFAULT 'JOB_SEEKER',
-  plan_tier TEXT DEFAULT 'FREE',
-  full_name TEXT,
-  company_name TEXT,
-  company_logo TEXT,
-  headline TEXT,
-  location_area TEXT DEFAULT 'Tanke / Unilorin Axis',
-  resume_url TEXT,
-  resume_file_name TEXT,
-  skills TEXT[],
-  is_verified BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+### Step 1.3: Set Environment Variables
+The data access layer (`lib/db/`) already uses Supabase whenever it is configured. Copy `.env.example` to `.env.local` and fill in:
+* `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (Supabase > Project Settings > API)
+* `SESSION_SECRET` (generate with `openssl rand -base64 48`)
+* `NEXT_PUBLIC_SITE_URL` (your live address, e.g. `https://illyjobs.ng`)
 
--- Create Jobs Table
-CREATE TABLE public.jobs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  title TEXT NOT NULL,
-  slug TEXT UNIQUE NOT NULL,
-  company TEXT NOT NULL,
-  company_logo TEXT,
-  location_area TEXT NOT NULL,
-  address TEXT,
-  category TEXT NOT NULL,
-  employment_type TEXT DEFAULT 'FULL_TIME',
-  salary_min INT,
-  salary_max INT,
-  salary_currency TEXT DEFAULT 'NGN',
-  description TEXT NOT NULL,
-  requirements TEXT[],
-  preferred_channel TEXT DEFAULT 'WHATSAPP',
-  whatsapp_phone TEXT,
-  contact_email TEXT,
-  is_verified BOOLEAN DEFAULT TRUE,
-  is_featured BOOLEAN DEFAULT FALSE,
-  is_pro_employer BOOLEAN DEFAULT FALSE,
-  posted_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Create Indexes for Hyper-Fast Search in Ilorin
-CREATE INDEX idx_jobs_location_category ON public.jobs (location_area, category);
-CREATE INDEX idx_jobs_slug ON public.jobs (slug);
-CREATE INDEX idx_jobs_posted_at ON public.jobs (posted_at DESC);
-
--- Create Applications Table
-CREATE TABLE public.applications (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  job_id UUID REFERENCES public.jobs(id) ON DELETE CASCADE,
-  applicant_name TEXT NOT NULL,
-  applicant_email TEXT NOT NULL,
-  applicant_phone TEXT NOT NULL,
-  location_area TEXT,
-  resume_url TEXT,
-  cover_note TEXT,
-  submitted_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Create Supabase Storage Bucket for Resumes
-INSERT INTO storage.buckets (id, name, public) VALUES ('resumes', 'resumes', true);
-```
-
-### Step 1.3: Update Data Access Layer
-Install `@supabase/supabase-js`:
-```bash
-npm install @supabase/supabase-js
-```
-Replace the internal methods in `lib/db/jobs.ts` and `lib/db/users.ts` with Supabase query calls. **No UI component changes required.**
+Without Supabase, development falls back to the demo data in `data/db.json`. Production never reads that file.
 
 ---
 
@@ -112,9 +45,9 @@ Replace the internal methods in `lib/db/jobs.ts` and `lib/db/users.ts` with Supa
 ### Step 2.2: Set Environment Variables on Vercel
 In Vercel Project Settings > Environment Variables, add:
 * `NEXT_PUBLIC_SITE_URL` = `https://illyjobs.ng`
-* `NEXT_PUBLIC_SUPABASE_URL` = `https://your-supabase-id.supabase.co`
-* `NEXT_PUBLIC_SUPABASE_ANON_KEY` = `your-supabase-anon-key`
-* `SUPABASE_SERVICE_ROLE_KEY` = `your-supabase-service-role-key`
+* `SUPABASE_URL` = `https://your-supabase-id.supabase.co`
+* `SUPABASE_SERVICE_ROLE_KEY` = `your-supabase-service-role-key` (server secret)
+* `SESSION_SECRET` = a random string of at least 32 characters
 
 ### Step 2.3: Configure Custom Domain (`illyjobs.ng`)
 1. Purchase domain `illyjobs.ng` or `illyjobs.com` (from Whogohost, DomainKing, or Namecheap).

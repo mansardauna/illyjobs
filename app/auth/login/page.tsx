@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/context/AuthContext";
 import { Mail, Lock } from "lucide-react";
 import { Input, Button, AlertBanner } from "@/components/ui";
+import { getNextPath } from "@/lib/navigation";
 
 interface RoleToggleProps {
   value: "JOB_SEEKER" | "EMPLOYER";
@@ -14,14 +15,15 @@ interface RoleToggleProps {
 
 function RoleToggle({ value, onChange }: RoleToggleProps) {
   return (
-    <div className="bg-slate-200 p-1 rounded-sm grid grid-cols-2 text-sm font-semibold">
+    <div role="group" aria-label="Account type" className="bg-slate-200 p-1 rounded-sm grid grid-cols-2 text-sm font-semibold">
       {(["JOB_SEEKER", "EMPLOYER"] as const).map((r) => (
         <button
           key={r}
           type="button"
+          aria-pressed={value === r}
           onClick={() => onChange(r)}
           className={`py-2 rounded-sm transition-colors ${
-            value === r ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"
+            value === r ? "bg-white text-slate-900 shadow-sm" : "text-slate-700 hover:text-slate-900"
           }`}
         >
           {r === "JOB_SEEKER" ? "Job Seeker" : "Ilorin Employer"}
@@ -56,7 +58,7 @@ export default function LoginPage() {
 
       if (data.success && data.user) {
         login(data.user);
-        router.push(data.user.role === "EMPLOYER" ? "/post-job" : "/jobs");
+        router.push(getNextPath("/dashboard"));
       } else {
         setErrorMsg(data.error || "Login failed. Please check your credentials.");
       }
@@ -84,7 +86,8 @@ export default function LoginPage() {
         {errorMsg && <AlertBanner variant="error">{errorMsg}</AlertBanner>}
 
         <Input
-          label="Email Address *"
+          label="Email address"
+          autoComplete="email"
           type="email"
           required
           icon={<Mail className="w-5 h-5" />}
@@ -94,7 +97,8 @@ export default function LoginPage() {
         />
 
         <Input
-          label="Password *"
+          label="Password"
+          autoComplete="current-password"
           type="password"
           required
           icon={<Lock className="w-5 h-5" />}
@@ -102,16 +106,6 @@ export default function LoginPage() {
           onChange={(e) => setPassword(e.target.value)}
           placeholder="••••••••"
         />
-
-        <div className="p-3 bg-slate-50 border border-slate-200 rounded-sm text-xs text-slate-600 space-y-0.5">
-          <p className="font-semibold text-slate-800">Quick Test Credentials:</p>
-          <p>
-            Email:{" "}
-            <code className="text-brand-green bg-white px-1 font-mono">
-              {role === "JOB_SEEKER" ? "jobseeker@ilorin.ng" : "employer@harmonytech.ng"}
-            </code>
-          </p>
-        </div>
 
         <Button type="submit" disabled={submitting} className="w-full py-3 text-base">
           {submitting ? "Signing In…" : `Sign In as ${role === "EMPLOYER" ? "Employer" : "Candidate"}`}

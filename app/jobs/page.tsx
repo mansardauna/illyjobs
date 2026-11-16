@@ -1,120 +1,73 @@
-"use client";
+import type { Metadata } from "next";
+import JobListingPage from "@/components/JobListingPage";
+import { getJobs } from "@/lib/db/jobs";
+import { areaByLocation, categoryByName } from "@/lib/seo/landing";
 
-import { useState, useEffect, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
-import JobCard from "@/components/JobCard";
-import JobSearchFilter from "@/components/JobSearchFilter";
-import ApplyModal from "@/components/ApplyModal";
-import { SkeletonGrid } from "@/components/ui";
-import { Job } from "@/lib/db/jobs";
+export const dynamic = "force-dynamic";
 
-const LOCATIONS = [
-  "Tanke / Unilorin Axis",
-  "GRA",
-  "Taiwo / Post Office",
-  "Challenge / Unity",
-  "Fate / Airport Road",
-  "Asa Dam / Sawmill",
-  "Sango / Kulende",
-  "Ganmo / Kilanko",
-  "Oke-Oyi",
-  "Kwara Poly / Elekoyangan",
-  "Offa Garage",
-];
+interface PageProps {
+  searchParams: { query?: string; location?: string; category?: string; type?: string };
+}
 
-const CATEGORIES = [
-  "Education / Teaching",
-  "Technology & Software",
-  "Retail & Sales",
-  "Healthcare & Nursing",
-  "Artisans & Technical Trades",
-  "Customer Service",
-  "Banking & Accounting",
-  "Hospitality & Catering",
-];
+function one(value: string | string[] | undefined): string {
+  return (Array.isArray(value) ? value[0] : value) || "";
+}
 
-function buildPageTitle(category: string, location: string): string {
-  if (category !== "ALL" && location !== "ALL") return `${category} Jobs in ${location}, Ilorin`;
-  if (category !== "ALL") return `${category} Jobs in Ilorin`;
-  if (location !== "ALL") return `Jobs in ${location}, Ilorin`;
+function buildTitle(category: string, location: string, query: string): string {
+  if (query) return `"${query}" jobs in Ilorin`;
+  if (category && location) return `${category} jobs in ${location}, Ilorin`;
+  if (category) return `${category} jobs in Ilorin`;
+  if (location) return `Jobs in ${location}, Ilorin`;
   return "Jobs in Ilorin, Kwara State";
 }
 
-// ── Inner content (needs Suspense wrapper for useSearchParams) ──────────────
-function JobsContent() {
-  const searchParams = useSearchParams();
-  const query    = searchParams.get("query")    || "";
-  const location = searchParams.get("location") || "ALL";
-  const category = searchParams.get("category") || "ALL";
-  const type     = searchParams.get("type")     || "ALL";
+export function generateMetadata({ searchParams }: PageProps): Metadata {
+  const query = one(searchParams.query);
+  const location = one(searchParams.location);
+  const category = one(searchParams.category);
+  const type = one(searchParams.type);
+  const filtered = Boolean(query || location || category || type);
 
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  // A single area or category filter has its own landing page; point search engines there.
+  let canonical = "/jobs";
+  const area = areaByLocation(location);
+  const cat = categoryByName(category);
+  if (area && !category && !query && !type) canonical = `/jobs-in/${area.slug}`;
+  else if (cat && !location && !query && !type) canonical = `/job-categories/${cat.slug}`;
 
-  useEffect(() => {
-    setLoading(true);
-    const params = new URLSearchParams();
-    if (query)              params.set("query",    query);
-    if (location !== "ALL") params.set("location", location);
-    if (category !== "ALL") params.set("category", category);
-    if (type     !== "ALL") params.set("type",     type);
-
-    fetch(`/api/jobs?${params.toString()}`)
-      .then((r) => r.json())
-      .then((data) => { if (data.success) setJobs(data.jobs); })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [query, location, category, type]);
-
-  return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8" id="main-content">
-
-      {/* Page title — changes with active filters */}
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-heading tracking-tight">
-          {buildPageTitle(category, location)}
-        </h1>
-        <p className="text-sm text-slate-500 mt-1">
-          {jobs.length} verified vacanc{jobs.length === 1 ? "y" : "ies"} matching your filters
-        </p>
-      </div>
-
-      {/* Search & Filter bar — reads its own searchParams internally */}
-      <JobSearchFilter locations={LOCATIONS} categories={CATEGORIES} />
-
-      {/* Results */}
-      {loading ? (
-        <SkeletonGrid count={6} height="h-52" />
-      ) : jobs.length === 0 ? (
-        <div className="bg-white border border-slate-200 rounded-sm p-12 text-center space-y-2">
-          <h3 className="text-lg font-bold text-slate-800">No vacancies matched your filters</h3>
-          <p className="text-sm text-slate-500 max-w-md mx-auto">
-            Try resetting your search or selecting a broader area such as "All Ilorin Areas".
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {jobs.map((job) => (
-            <JobCard key={job.id} job={job} onApplyClick={setSelectedJob} />
-          ))}
-        </div>
-      )}
-
-      <ApplyModal
-        job={selectedJob}
-        isOpen={Boolean(selectedJob)}
-        onClose={() => setSelectedJob(null)}
-      />
-    </div>
-  );
+  return {
+    title: buildTitle(category, location, query),
+    description:
+      "Browse the latest verified job vacancies in Ilorin and Kwara State. Filter by area, category and job type, then apply online or on WhatsApp.",
+    alternates: { canonical },
+    // Filter combinations and keyword searches are not separate pages worth indexing.
+    robots: filtered && canonical === "/jobs" ? { index: false, follow: true } : undefined,
+  };
 }
 
-// ── Page export wrapped in Suspense ─────────────────────────────────────────
-export default function JobsDirectoryPage() {
+export default async function JobsDirectoryPage({ searchParams }: PageProps) {
+  const query = one(searchParams.query);
+  const location = one(searchParams.location);
+  const category = one(searchParams.category);
+  const type = one(searchParams.type);
+
+  const jobs = await getJobs({
+    query: query || undefined,
+    locationArea: location || undefined,
+    category: category || undefined,
+    employmentType: type || undefined,
+  });
+
   return (
-    <Suspense fallback={<div className="p-8 text-center text-sm text-slate-500">Loading Ilorin Jobs…</div>}>
-      <JobsContent />
-    </Suspense>
+    <JobListingPage
+      // Remount the search form when the filters in the URL change.
+      key={`${query}|${location}|${category}|${type}`}
+      title={buildTitle(category, location, query)}
+      jobs={jobs}
+      breadcrumbs={[
+        { name: "Home", path: "/" },
+        { name: "Jobs in Ilorin", path: "/jobs" },
+      ]}
+    />
   );
 }

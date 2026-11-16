@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
-import { getUserByEmail } from "@/lib/db/users";
+import { getUserByEmail, toSafeUser } from "@/lib/db/users";
+import { verifyPassword } from "@/lib/auth/password";
+import { setSessionCookie } from "@/lib/auth/session";
 
 export async function POST(request: Request) {
   try {
     const { email, password } = await request.json();
 
-    if (!email || !password) {
+    if (typeof email !== "string" || typeof password !== "string" || !email || !password) {
       return NextResponse.json(
         { success: false, error: "Please enter your email and password." },
         { status: 400 }
@@ -13,16 +15,18 @@ export async function POST(request: Request) {
     }
 
     const user = await getUserByEmail(email);
+    const passwordOk = await verifyPassword(password, user?.passwordHash);
 
-    if (!user) {
+    // Same message for unknown email and wrong password, so accounts can't be probed.
+    if (!user || !passwordOk) {
       return NextResponse.json(
-        { success: false, error: "Invalid credentials. Account not found." },
+        { success: false, error: "Incorrect email or password." },
         { status: 401 }
       );
     }
 
-    // Omit sensitive data before returning
-    const { passwordHash, ...safeUser } = user;
+    setSessionCookie(user.id);
+    const safeUser = toSafeUser(user);
 
     return NextResponse.json({
       success: true,
@@ -30,6 +34,7 @@ export async function POST(request: Request) {
       message: `Welcome back, ${safeUser.fullName || safeUser.email}!`,
     });
   } catch (error) {
+    console.error("Login failed:", error);
     return NextResponse.json(
       { success: false, error: "Login failed. Please try again." },
       { status: 500 }
