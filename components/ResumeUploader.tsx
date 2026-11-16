@@ -1,87 +1,138 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { Upload, FileText, CheckCircle, Trash2, AlertCircle } from "lucide-react";
+import { useId, useRef, useState } from "react";
+import { Upload, FileText, CheckCircle, Trash2, AlertCircle, Loader2 } from "lucide-react";
+import { useAuth } from "@/lib/context/AuthContext";
+
+const MAX_BYTES = 5 * 1024 * 1024;
+
+export function checkResumeFile(file: File): string | null {
+  if (!/\.(pdf|doc|docx)$/i.test(file.name)) return "Please upload a PDF, DOC or DOCX file.";
+  if (file.size > MAX_BYTES) return "File size exceeds the 5MB limit.";
+  return null;
+}
+
+/** Uploads a CV to the signed-in user's profile. Throws with a readable message on failure. */
+export async function uploadResume(file: File) {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch("/api/uploads/resume", { method: "POST", body: form });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.success) throw new Error(data.error || "Upload failed. Please try again.");
+  return data.user;
+}
 
 interface ResumeUploaderProps {
-  initialFileUrl?: string;
-  initialFileName?: string;
-  onFileSelect: (fileUrl: string, fileName: string) => void;
+  /**
+   * "profile" (default): the file is uploaded immediately to the signed-in
+   * user's profile. "deferred": the chosen file is handed to the parent, which
+   * uploads it later (used on the sign-up form, before the account exists).
+   */
+  mode?: "profile" | "deferred";
+  onFilePicked?: (file: File | null) => void;
+  label?: string;
 }
 
 export default function ResumeUploader({
-  initialFileUrl,
-  initialFileName,
-  onFileSelect,
+  mode = "profile",
+  onFilePicked,
+  label = "CV / Resume (PDF or Word, max 5MB)",
 }: ResumeUploaderProps) {
-  const [fileName, setFileName] = useState<string | null>(initialFileName || null);
-  const [fileUrl, setFileUrl] = useState<string | null>(initialFileUrl || null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
+  const { user, login } = useAuth();
+  const inputId = useId();
+  const statusId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleFile = (file: File) => {
+  const [pickedName, setPickedName] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const fileName = mode === "profile" ? user?.resumeFileName || null : pickedName;
+
+  const handleFile = async (file: File) => {
     setErrorMsg("");
-    const validTypes = [
-      "application/pdf",
-      "application/msword",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ];
-
-    if (!validTypes.includes(file.type) && !file.name.match(/\.(pdf|doc|docx)$/i)) {
-      setErrorMsg("Please upload a PDF or DOCX format resume.");
+    const problem = checkResumeFile(file);
+    if (problem) {
+      setErrorMsg(problem);
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      setErrorMsg("File size exceeds 5MB limit.");
+    if (mode === "deferred") {
+      setPickedName(file.name);
+      onFilePicked?.(file);
       return;
     }
 
-    // Mock upload URL generation
-    const mockUrl = `/uploads/resumes/${file.name.replace(/\s+/g, "_")}`;
-    setFileName(file.name);
-    setFileUrl(mockUrl);
-    onFileSelect(mockUrl, file.name);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFile(e.dataTransfer.files[0]);
+    setUploading(true);
+    try {
+      login(await uploadResume(file));
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : "Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
     }
   };
 
-  const handleRemove = () => {
-    setFileName(null);
-    setFileUrl(null);
-    onFileSelect("", "");
+  const handleRemove = async () => {
+    setErrorMsg("");
+    if (mode === "deferred") {
+      setPickedName(null);
+      onFilePicked?.(null);
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
+    try {
+      const res = await fetch("/api/uploads/resume", { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) login(data.user);
+      else setErrorMsg(data.error || "Could not remove your CV.");
+    } catch {
+      setErrorMsg("Network error. Please try again.");
+    }
   };
 
   return (
     <div className="space-y-2">
-      <label className="block text-sm font-bold text-slate-900 mb-1">
-        Resume / CV File (PDF or DOCX) *
+      <label htmlFor={inputId} className="block text-sm font-bold text-slate-800">
+        {label}
       </label>
 
-      {errorMsg && (
-        <div className="p-3 bg-rose-50 border border-rose-200 rounded-sm text-xs text-rose-700 flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>{errorMsg}</span>
-        </div>
-      )}
+      <div id={statusId} aria-live="polite">
+        {errorMsg && (
+          <p role="alert" className="p-3 bg-rose-50 border border-rose-200 rounded-sm text-sm text-rose-800 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
+            <span>{errorMsg}</span>
+          </p>
+        )}
+        {uploading && (
+          <p className="text-sm text-slate-700 flex items-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> Uploading your CV…
+          </p>
+        )}
+      </div>
 
-      {fileName ? (
-        <div className="flex items-center justify-between p-4 bg-emerald-50 border border-emerald-300 rounded-sm">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-emerald-600 text-white rounded-sm flex items-center justify-center">
+      {fileName && !uploading && (
+        <div className="flex items-center justify-between gap-3 p-4 bg-emerald-50 border border-emerald-300 rounded-sm">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 bg-brand-green text-white rounded-sm flex items-center justify-center shrink-0" aria-hidden="true">
               <FileText className="w-5 h-5" />
             </div>
-            <div>
-              <p className="text-sm font-bold text-slate-900 line-clamp-1">{fileName}</p>
-              <span className="text-xs text-emerald-700 flex items-center gap-1 font-medium">
-                <CheckCircle className="w-3.5 h-3.5" /> Resume Ready for Employers
+            <div className="min-w-0">
+              {mode === "profile" && user ? (
+                <a
+                  href={`/api/files/resume?userId=${user.id}`}
+                  className="text-sm font-bold text-slate-900 underline block truncate"
+                >
+                  {fileName}
+                </a>
+              ) : (
+                <p className="text-sm font-bold text-slate-900 truncate">{fileName}</p>
+              )}
+              <span className="text-xs text-emerald-800 flex items-center gap-1 font-medium">
+                <CheckCircle className="w-3.5 h-3.5" aria-hidden="true" />
+                {mode === "profile" ? "Saved to your profile" : "Will be uploaded when you create your account"}
               </span>
             </div>
           </div>
@@ -89,41 +140,50 @@ export default function ResumeUploader({
           <button
             type="button"
             onClick={handleRemove}
-            className="p-2 text-slate-500 hover:text-rose-600 focus-visible:ring-2 focus-visible:ring-emerald-600 rounded-sm"
-            aria-label="Remove uploaded resume"
+            className="p-2 text-slate-600 hover:text-rose-700 rounded-sm shrink-0"
+            aria-label={`Remove CV ${fileName}`}
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>
-      ) : (
-        <div
-          onDragOver={(e) => {
-            e.preventDefault();
-            setIsDragging(true);
-          }}
-          onDragLeave={() => setIsDragging(false)}
-          onDrop={handleDrop}
-          onClick={() => inputRef.current?.click()}
-          className={`border-2 border-dashed rounded-sm p-6 text-center cursor-pointer transition-colors ${
-            isDragging
-              ? "border-emerald-600 bg-emerald-50"
-              : "border-slate-300 hover:border-emerald-500 bg-slate-50 hover:bg-white"
-          }`}
-        >
-          <input
-            ref={inputRef}
-            type="file"
-            accept=".pdf,.doc,.docx"
-            className="hidden"
-            onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
-          />
-          <Upload className="w-8 h-8 text-emerald-600 mx-auto mb-2" />
-          <p className="text-sm font-bold text-slate-900">
-            Click or drag & drop your resume CV here
-          </p>
-          <p className="text-xs text-slate-500 mt-1">Supports PDF, DOCX (Max 5MB)</p>
-        </div>
       )}
+
+      {/* The real file input stays focusable; the dashed area is its visible label. */}
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsDragging(true);
+        }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setIsDragging(false);
+          const file = e.dataTransfer.files?.[0];
+          if (file) handleFile(file);
+        }}
+        className={`relative border-2 border-dashed rounded-sm p-5 text-center transition-colors focus-within:border-brand-green ${
+          isDragging ? "border-brand-green bg-emerald-50" : "border-slate-400 bg-slate-50 hover:bg-white"
+        }`}
+      >
+        <input
+          ref={inputRef}
+          id={inputId}
+          type="file"
+          accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          disabled={uploading}
+          aria-describedby={statusId}
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) handleFile(file);
+          }}
+        />
+        <Upload className="w-7 h-7 text-brand-green mx-auto mb-2" aria-hidden="true" />
+        <p className="text-sm font-bold text-slate-900">
+          {fileName ? "Choose a different file" : "Choose a file or drag it here"}
+        </p>
+        <p className="text-xs text-slate-600 mt-1">PDF, DOC or DOCX, up to 5MB</p>
+      </div>
     </div>
   );
 }

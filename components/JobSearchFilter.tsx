@@ -4,40 +4,42 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { Input, Select, Button } from "@/components/ui";
+import { CATEGORIES, LOCATIONS } from "@/lib/constants";
 
 const EMPLOYMENT_TYPES = [
-  { value: "ALL", label: "All Types" },
-  { value: "FULL_TIME", label: "Full Time" },
-  { value: "PART_TIME", label: "Part Time" },
+  { value: "ALL", label: "All types" },
+  { value: "FULL_TIME", label: "Full time" },
+  { value: "PART_TIME", label: "Part time" },
   { value: "CONTRACT", label: "Contract" },
   { value: "INTERNSHIP", label: "Internship" },
   { value: "REMOTE", label: "Remote" },
 ];
 
 interface JobSearchFilterProps {
-  locations: string[];
-  categories: string[];
+  /** Preselected filters, e.g. on an area or category landing page. */
+  defaultLocation?: string;
+  defaultCategory?: string;
 }
 
-export default function JobSearchFilter({ locations, categories }: JobSearchFilterProps) {
+export default function JobSearchFilter({ defaultLocation, defaultCategory }: JobSearchFilterProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const [query, setQuery] = useState(searchParams.get("query") || "");
-  const [location, setLocation] = useState(searchParams.get("location") || "ALL");
-  const [category, setCategory] = useState(searchParams.get("category") || "ALL");
+  const [location, setLocation] = useState(searchParams.get("location") || defaultLocation || "ALL");
+  const [category, setCategory] = useState(searchParams.get("category") || defaultCategory || "ALL");
   const [type, setType] = useState(searchParams.get("type") || "ALL");
 
   const hasFilters = query || location !== "ALL" || category !== "ALL" || type !== "ALL";
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
+  const search = (nextType: string) => {
     const params = new URLSearchParams();
     if (query.trim()) params.set("query", query.trim());
     if (location !== "ALL") params.set("location", location);
     if (category !== "ALL") params.set("category", category);
-    if (type !== "ALL") params.set("type", type);
-    router.push(`/jobs?${params.toString()}`);
+    if (nextType !== "ALL") params.set("type", nextType);
+    const qs = params.toString();
+    router.push(qs ? `/jobs?${qs}` : "/jobs");
   };
 
   const handleReset = () => {
@@ -48,50 +50,56 @@ export default function JobSearchFilter({ locations, categories }: JobSearchFilt
     router.push("/jobs");
   };
 
-  const locationOptions = [{ value: "ALL", label: "All Ilorin Areas" }, ...locations.map((l) => ({ value: l, label: l }))];
-  const categoryOptions = [{ value: "ALL", label: "All Categories" }, ...categories.map((c) => ({ value: c, label: c }))];
+  const locationOptions = [{ value: "ALL", label: "All Ilorin areas" }, ...LOCATIONS.map((l) => ({ value: l, label: l }))];
+  const categoryOptions = [{ value: "ALL", label: "All categories" }, ...CATEGORIES.map((c) => ({ value: c, label: c }))];
 
   return (
     <form
-      onSubmit={handleSearch}
+      role="search"
+      onSubmit={(e) => {
+        e.preventDefault();
+        search(type);
+      }}
       className="bg-white border border-slate-200 rounded-sm p-4 sm:p-5 shadow-sm space-y-4"
-      aria-label="Job search and filters"
+      aria-label="Search jobs in Ilorin"
     >
-      {/* Main search row */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
         <div className="md:col-span-5">
           <Input
-            id="search-query"
+            type="search"
+            aria-label="Job title, skill or company"
             icon={<Search className="w-5 h-5" />}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search job title, skill, or company…"
+            placeholder="Job title, skill or company"
           />
         </div>
         <div className="md:col-span-3">
-          <Select id="location-select" value={location} onChange={(e) => setLocation(e.target.value)} options={locationOptions} />
+          <Select aria-label="Area" value={location} onChange={(e) => setLocation(e.target.value)} options={locationOptions} />
         </div>
         <div className="md:col-span-2">
-          <Select id="category-select" value={category} onChange={(e) => setCategory(e.target.value)} options={categoryOptions} />
+          <Select aria-label="Category" value={category} onChange={(e) => setCategory(e.target.value)} options={categoryOptions} />
         </div>
         <div className="md:col-span-2">
           <Button type="submit" className="w-full py-3 text-base">Search</Button>
         </div>
       </div>
 
-      {/* Work type quick filters */}
-      <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 flex-1">
-          <span className="text-slate-500 font-bold shrink-0 text-xs uppercase tracking-wider">Type:</span>
+      <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-200">
+        <div role="group" aria-label="Job type" className="flex items-center gap-2 overflow-x-auto p-1 flex-1">
           {EMPLOYMENT_TYPES.map(({ value, label }) => (
             <button
               key={value}
               type="button"
-              onClick={() => setType(value)}
-              className={`px-3 py-1 rounded-sm border transition-colors text-xs font-semibold whitespace-nowrap ${
+              aria-pressed={type === value}
+              onClick={() => {
+                setType(value);
+                search(value);
+              }}
+              className={`px-3 py-1.5 rounded-sm border transition-colors text-sm font-semibold whitespace-nowrap ${
                 type === value
                   ? "bg-brand-green text-white border-brand-green"
-                  : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                  : "bg-slate-50 text-slate-800 border-slate-300 hover:bg-slate-100"
               }`}
             >
               {label}
@@ -103,9 +111,9 @@ export default function JobSearchFilter({ locations, categories }: JobSearchFilt
           <button
             type="button"
             onClick={handleReset}
-            className="inline-flex items-center gap-1 text-slate-500 hover:text-rose-600 font-bold text-xs shrink-0"
+            className="inline-flex items-center gap-1 text-slate-700 hover:text-rose-700 font-bold text-sm shrink-0 p-1"
           >
-            <X className="w-3.5 h-3.5" /> Clear
+            <X className="w-4 h-4" aria-hidden="true" /> Clear filters
           </button>
         )}
       </div>

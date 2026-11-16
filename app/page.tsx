@@ -1,161 +1,93 @@
-"use client";
-
-import { useState, useEffect, Suspense } from "react";
+import { Suspense } from "react";
 import Link from "next/link";
-import JobCard from "@/components/JobCard";
+import JobGrid from "@/components/JobGrid";
 import JobSearchFilter from "@/components/JobSearchFilter";
-import ApplyModal from "@/components/ApplyModal";
-import { SectionHeader, SkeletonGrid } from "@/components/ui";
-import { Job } from "@/lib/db/jobs";
+import BrowseLinks from "@/components/BrowseLinks";
+import { SectionHeader } from "@/components/ui";
+import { getJobs } from "@/lib/db/jobs";
+import { AREA_PAGES } from "@/lib/seo/landing";
 
-const LOCATIONS = [
-  "Tanke / Unilorin Axis",
-  "GRA",
-  "Taiwo / Post Office",
-  "Challenge / Unity",
-  "Fate / Airport Road",
-  "Asa Dam / Sawmill",
-  "Sango / Kulende",
-  "Ganmo / Kilanko",
-  "Oke-Oyi",
-  "Kwara Poly / Elekoyangan",
-  "Offa Garage",
-];
+// Always show the latest jobs.
+export const dynamic = "force-dynamic";
 
-const CATEGORIES = [
-  "Education / Teaching",
-  "Technology & Software",
-  "Retail & Sales",
-  "Healthcare & Nursing",
-  "Artisans & Technical Trades",
-  "Customer Service",
-  "Banking & Accounting",
-  "Hospitality & Catering",
-];
-
-const HERO_AREAS = [
-  "Tanke / Unilorin Axis",
-  "GRA",
-  "Taiwo & Unity",
-  "Challenge",
-  "Fate / Airport Rd",
-  "Kwara Poly Axis",
-];
-
-export default function HomePage() {
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
-
-  useEffect(() => {
-    fetch("/api/jobs")
-      .then((r) => r.json())
-      .then((data) => { if (data.success) setJobs(data.jobs); })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
-
-  const featuredJobs = jobs.filter((j) => j.isFeatured);
-  const recentJobs = jobs.slice(0, 6);
+export default async function HomePage() {
+  const jobs = await getJobs();
+  const featuredJobs = jobs.filter((j) => j.isFeatured).slice(0, 6);
+  const recentJobs = jobs.slice(0, 9);
 
   return (
-    <div className="space-y-12 pb-16" id="main-content">
-
-      {/* ── Hero Banner ── */}
+    <div className="space-y-12 pb-16">
       <section className="bg-gradient-to-b from-slate-900 to-slate-800 text-white py-14 sm:py-20 border-b border-slate-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl space-y-5">
-
-            <span className="px-3.5 py-1 text-white text-xs font-extrabold rounded-sm uppercase tracking-wider inline-block bg-brand-green">
-              Ilorin &amp; Kwara Job Marketplace
-            </span>
-
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold font-heading tracking-tight leading-tight">
-              Connecting Local Employers &amp; Talent{" "}
-              <span className="text-brand-green">Friction-Free.</span>
-            </h1>
-
-            <p className="text-lg sm:text-xl text-slate-300 max-w-2xl leading-relaxed">
-              Find verified vacancies across Ilorin. Apply in seconds via CV upload or direct WhatsApp.
+            <p className="px-3.5 py-1 text-white text-xs font-extrabold rounded-sm uppercase tracking-wider inline-block bg-brand-green">
+              Ilorin &amp; Kwara job board
             </p>
 
-            <div className="flex flex-wrap gap-2 pt-3">
-              {HERO_AREAS.map((area) => (
-                <Link
-                  key={area}
-                  href={`/jobs?location=${encodeURIComponent(area)}`}
-                  className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-sm border border-slate-600 transition-colors"
-                >
-                  {area}
-                </Link>
-              ))}
-            </div>
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold font-heading tracking-tight leading-tight">
+              Find jobs in Ilorin from <span className="text-brand-on-dark">verified employers.</span>
+            </h1>
 
+            <p className="text-lg sm:text-xl text-slate-200 max-w-2xl leading-relaxed">
+              Apply online or on WhatsApp, track every application and message employers directly. Free for job seekers.
+            </p>
+
+            <nav aria-label="Popular areas">
+              <ul className="flex flex-wrap gap-2 pt-3">
+                {AREA_PAGES.slice(0, 6).map((area) => (
+                  <li key={area.slug}>
+                    <Link
+                      href={`/jobs-in/${area.slug}`}
+                      className="inline-block px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-100 text-sm font-semibold rounded-sm border border-slate-500 transition-colors"
+                    >
+                      {area.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
           </div>
         </div>
       </section>
 
-      {/* ── Search Bar (pulled up to overlap hero) ── */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-10 relative z-20">
-        <Suspense fallback={
-          <div className="bg-white p-4 border border-slate-200 rounded-sm text-sm text-slate-400 shadow-sm">
-            Loading search…
-          </div>
-        }>
-          <JobSearchFilter locations={LOCATIONS} categories={CATEGORIES} />
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-10 relative z-20" aria-label="Job search">
+        <Suspense fallback={<div className="bg-white p-4 border border-slate-200 rounded-sm text-sm text-slate-700 shadow-sm">Loading search…</div>}>
+          <JobSearchFilter />
         </Suspense>
       </section>
 
-      {/* ── Featured Jobs ── */}
+      {featuredJobs.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+          <SectionHeader title="Featured vacancies" subtitle="Highlighted openings from Kwara employers" />
+          <JobGrid jobs={featuredJobs} />
+        </section>
+      )}
+
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
         <SectionHeader
-          title="Featured Vacancies"
-          subtitle="Top verified openings from trusted Kwara employers"
-          action={
-            <Link href="/jobs" className="text-sm font-bold text-brand-green hover:underline">
-              All Jobs ({jobs.length}) →
-            </Link>
-          }
-        />
-
-        {loading ? (
-          <SkeletonGrid count={3} />
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {featuredJobs.map((job) => (
-              <JobCard key={job.id} job={job} onApplyClick={setSelectedJob} />
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* ── Recent Openings ── */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-        <SectionHeader
-          title="Recent Job Openings"
+          title="Latest jobs in Ilorin"
           border
           action={
             <Link href="/jobs" className="text-sm font-bold text-brand-green hover:underline">
-              Browse Directory →
+              All jobs ({jobs.length}) →
             </Link>
           }
         />
-
-        {!loading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {recentJobs.map((job) => (
-              <JobCard key={job.id} job={job} onApplyClick={setSelectedJob} />
-            ))}
-          </div>
-        )}
+        <JobGrid
+          jobs={recentJobs}
+          empty={
+            <div className="bg-white border border-slate-200 rounded-sm p-10 text-center space-y-3">
+              <p className="text-lg font-bold text-slate-900">New vacancies are being added.</p>
+              <p className="text-slate-700">Employers: post your vacancy free and reach job seekers across Ilorin.</p>
+              <Link href="/post-job" className="btn-primary inline-flex">Post a job</Link>
+            </div>
+          }
+        />
       </section>
 
-      {/* ── Apply Modal ── */}
-      <ApplyModal
-        job={selectedJob}
-        isOpen={Boolean(selectedJob)}
-        onClose={() => setSelectedJob(null)}
-      />
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <BrowseLinks />
+      </section>
     </div>
   );
 }

@@ -1,255 +1,246 @@
-import { Metadata } from "next";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getJobBySlug, getJobs } from "@/lib/db/jobs";
-import { MapPin, Briefcase, Banknote, ShieldCheck, MessageCircle, Clock, CheckCircle2, ArrowLeft } from "lucide-react";
+import { MapPin, Briefcase, Banknote, ShieldCheck, CheckCircle2, CalendarDays } from "lucide-react";
 import ApplyModalWrapper from "./ApplyModalWrapper";
+import JsonLd from "@/components/seo/JsonLd";
+import { getJobBySlug, getJobs, isJobActive } from "@/lib/db/jobs";
+import { EMPLOYMENT_TYPE_LABELS } from "@/lib/constants";
+import { formatDate, formatSalary } from "@/lib/format";
+import { areaByLocation, categoryByName } from "@/lib/seo/landing";
+import { breadcrumbSchema, jobPostingSchema } from "@/lib/seo/schema";
+import { absoluteUrl } from "@/lib/site";
+
+export const dynamic = "force-dynamic";
 
 interface PageProps {
-  params: {
-    slug: string;
-  };
+  params: { slug: string };
 }
 
-// Generate Dynamic SEO Metadata for Google Crawlers
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const job = await getJobBySlug(params.slug);
-  if (!job) {
-    return { title: "Job Vacancy Not Found | Illy Jobs" };
-  }
+  if (!job) return { title: "Job not found", robots: { index: false, follow: true } };
+
+  const title = `${job.title} at ${job.company}, ${job.locationArea}, Ilorin`;
+  const salary = job.salaryMin || job.salaryMax ? ` ${formatSalary(job.salaryMin, job.salaryMax)}.` : "";
+  const description = `${job.company} is hiring a ${job.title} in ${job.locationArea}, Ilorin.${salary} ${job.description}`
+    .replace(/\s+/g, " ")
+    .slice(0, 158);
 
   return {
-    title: `${job.title} at ${job.company} (${job.locationArea}, Ilorin)`,
-    description: `Vacancy for ${job.title} in ${job.locationArea}, Ilorin, Kwara State. Apply directly via Illy Jobs or WhatsApp.`,
+    title,
+    description,
+    alternates: { canonical: `/jobs/${job.slug}` },
+    // Closed or expired vacancies should drop out of search results.
+    robots: isJobActive(job) ? undefined : { index: false, follow: true },
     openGraph: {
-      title: `${job.title} - ${job.company} (${job.locationArea}, Ilorin)`,
-      description: job.description.slice(0, 160),
-      url: `https://illyjobs.ng/jobs/${job.slug}`,
-      siteName: "Illy Jobs",
+      title,
+      description,
+      url: `/jobs/${job.slug}`,
       type: "article",
+      publishedTime: job.postedAt,
     },
   };
 }
 
 export default async function JobDetailPage({ params }: PageProps) {
   const job = await getJobBySlug(params.slug);
-  if (!job) {
-    notFound();
-  }
+  if (!job) notFound();
 
-  const allJobs = await getJobs({ locationArea: job.locationArea });
-  const similarJobs = allJobs.filter((j) => j.id !== job.id).slice(0, 3);
+  const active = isJobActive(job);
+  const area = areaByLocation(job.locationArea);
+  const category = categoryByName(job.category);
 
-  // Format salary
-  const formatSalary = () => {
-    if (job.salaryMin && job.salaryMax) {
-      return `₦${job.salaryMin.toLocaleString()} - ₦${job.salaryMax.toLocaleString()} per month`;
-    }
-    if (job.salaryMin) {
-      return `From ₦${job.salaryMin.toLocaleString()} per month`;
-    }
-    return "Salary Negotiable";
-  };
+  const similarJobs = (await getJobs({ locationArea: job.locationArea }))
+    .filter((j) => j.id !== job.id)
+    .slice(0, 3);
 
-  // Google JobPosting JSON-LD Schema
-  const jsonLd = {
-    "@context": "https://schema.org/",
-    "@type": "JobPosting",
-    "title": job.title,
-    "description": job.description,
-    "identifier": {
-      "@type": "PropertyValue",
-      "name": "Illy Jobs",
-      "value": job.id,
-    },
-    "datePosted": job.postedAt,
-    "validThrough": "2026-10-30",
-    "employmentType": job.employmentType,
-    "hiringOrganization": {
-      "@type": "Organization",
-      "name": job.company,
-      "logo": job.companyLogo || "https://illyjobs.ng/logo.png",
-    },
-    "jobLocation": {
-      "@type": "Place",
-      "address": {
-        "@type": "PostalAddress",
-        "streetAddress": job.address || job.locationArea,
-        "addressLocality": "Ilorin",
-        "addressRegion": "Kwara State",
-        "addressCountry": "NG",
-      },
-    },
-    "baseSalary": job.salaryMin
-      ? {
-          "@type": "MonetaryAmount",
-          "currency": "NGN",
-          "value": {
-            "@type": "QuantitativeValue",
-            "value": job.salaryMin,
-            "unitText": "MONTH",
-          },
-        }
-      : undefined,
-  };
+  const breadcrumbs = [
+    { name: "Home", path: "/" },
+    { name: "Jobs in Ilorin", path: "/jobs" },
+    ...(area ? [{ name: area.name, path: `/jobs-in/${area.slug}` }] : []),
+    { name: job.title, path: `/jobs/${job.slug}` },
+  ];
 
   const whatsappMessage = encodeURIComponent(
-    `Hello, I saw your job vacancy for "${job.title}" on Illy Jobs and would like to submit my application.`
+    `Hello, I saw your job vacancy for "${job.title}" on Illy Jobs and would like to apply.`
   );
   const whatsappUrl = job.whatsappPhone
     ? `https://wa.me/${job.whatsappPhone.replace(/[^0-9]/g, "")}?text=${whatsappMessage}`
     : null;
+  const shareUrl = `https://wa.me/?text=${encodeURIComponent(
+    `${job.title} at ${job.company}, ${job.locationArea}, Ilorin. Apply here: ${absoluteUrl(`/jobs/${job.slug}`)}`
+  )}`;
 
   return (
     <>
-      {/* Inject Google JobPosting Structured Data */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <JsonLd data={active ? [jobPostingSchema(job), breadcrumbSchema(breadcrumbs)] : breadcrumbSchema(breadcrumbs)} />
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        
-        {/* Back Link */}
-        <Link
-          href="/jobs"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-emerald-600 transition-colors focus-visible:ring-2 focus-visible:ring-emerald-600 rounded-sm p-1"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back to All Jobs in Ilorin</span>
-        </Link>
+        <nav aria-label="Breadcrumb">
+          <ol className="flex flex-wrap items-center gap-1.5 text-sm text-slate-700">
+            {breadcrumbs.map((crumb, index) => {
+              const last = index === breadcrumbs.length - 1;
+              return (
+                <li key={crumb.path} className="flex items-center gap-1.5">
+                  {last ? (
+                    <span aria-current="page" className="font-semibold text-slate-900">{crumb.name}</span>
+                  ) : (
+                    <>
+                      <Link href={crumb.path} className="underline hover:text-slate-900">{crumb.name}</Link>
+                      <span aria-hidden="true">/</span>
+                    </>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        </nav>
 
-        {/* Main Job Card Header */}
-        <div className="bg-white border border-slate-200 rounded-sm p-6 sm:p-8 shadow-sm space-y-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-6">
-            <div className="flex items-start gap-4">
-              {job.companyLogo ? (
-                <img
-                  src={job.companyLogo}
-                  alt={`${job.company} logo`}
-                  className="w-16 h-16 rounded-sm object-cover border border-slate-200 shrink-0"
-                />
-              ) : (
-                <div className="w-16 h-16 rounded-sm bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-2xl shrink-0">
-                  {job.company.charAt(0)}
-                </div>
-              )}
+        <article className="bg-white border border-slate-200 rounded-sm p-6 sm:p-8 shadow-sm space-y-6">
+          <header className="flex items-start gap-4 border-b border-slate-200 pb-6">
+            {job.companyLogo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={job.companyLogo}
+                alt=""
+                width={64}
+                height={64}
+                className="w-16 h-16 rounded-sm object-cover border border-slate-200 shrink-0"
+              />
+            ) : (
+              <div
+                className="w-16 h-16 rounded-sm bg-emerald-100 text-emerald-900 font-bold flex items-center justify-center text-2xl shrink-0"
+                aria-hidden="true"
+              >
+                {job.company.charAt(0).toUpperCase()}
+              </div>
+            )}
 
-              <div>
-                <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <span className="px-2 py-0.5 text-xs font-semibold bg-emerald-50 text-emerald-700 rounded-sm border border-emerald-200">
-                    {job.locationArea}
-                  </span>
-                  <span className="px-2 py-0.5 text-xs font-medium bg-slate-100 text-slate-700 rounded-sm">
-                    {job.employmentType.replace("_", " ")}
-                  </span>
-                  {job.isVerified && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-emerald-100 text-emerald-800 rounded-sm">
-                      <ShieldCheck className="w-3.5 h-3.5" />
-                      Verified Employer
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 leading-tight">{job.title}</h1>
+              <p className="text-base font-semibold text-slate-800 mt-1">{job.company}</p>
+
+              <ul className="flex items-center gap-2 flex-wrap mt-3">
+                <li className="px-2 py-0.5 text-xs font-semibold bg-emerald-50 text-emerald-900 rounded-sm border border-emerald-300">
+                  {job.locationArea}
+                </li>
+                <li className="px-2 py-0.5 text-xs font-semibold bg-slate-100 text-slate-800 rounded-sm border border-slate-200">
+                  {EMPLOYMENT_TYPE_LABELS[job.employmentType] || job.employmentType}
+                </li>
+                {job.isVerified && (
+                  <li className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-emerald-100 text-emerald-900 rounded-sm">
+                    <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
+                    Verified employer
+                  </li>
+                )}
+              </ul>
+            </div>
+          </header>
+
+          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-slate-50 border border-slate-200 rounded-sm text-sm">
+            <div>
+                <dt className="text-slate-700 flex items-center gap-1.5">
+                  <MapPin className="w-4 h-4 text-brand-green shrink-0" aria-hidden="true" />
+                  Location
+                </dt>
+                <dd className="font-bold text-slate-900">{job.address || job.locationArea}</dd>
+            </div>
+            <div>
+                <dt className="text-slate-700 flex items-center gap-1.5">
+                  <Banknote className="w-4 h-4 text-brand-green shrink-0" aria-hidden="true" />
+                  Salary
+                </dt>
+                <dd className="font-bold text-slate-900">{formatSalary(job.salaryMin, job.salaryMax)}</dd>
+            </div>
+            <div>
+                <dt className="text-slate-700 flex items-center gap-1.5">
+                  <Briefcase className="w-4 h-4 text-brand-green shrink-0" aria-hidden="true" />
+                  Category
+                </dt>
+                <dd className="font-bold text-slate-900">
+                  {category ? (
+                    <Link href={`/job-categories/${category.slug}`} className="underline">{job.category}</Link>
+                  ) : (
+                    job.category
+                  )}
+                </dd>
+            </div>
+            <div>
+                <dt className="text-slate-700 flex items-center gap-1.5">
+                  <CalendarDays className="w-4 h-4 text-brand-green shrink-0" aria-hidden="true" />
+                  Posted
+                </dt>
+                <dd className="font-bold text-slate-900">
+                  <time dateTime={job.postedAt}>{formatDate(job.postedAt)}</time>
+                  {active && job.closesAt && (
+                    <span className="font-normal text-slate-700">
+                      {" "}• closes <time dateTime={job.closesAt}>{formatDate(job.closesAt)}</time>
                     </span>
                   )}
-                </div>
-
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 leading-tight">
-                  {job.title}
-                </h1>
-                <p className="text-sm font-semibold text-slate-700 mt-1">{job.company}</p>
-              </div>
+                </dd>
             </div>
-          </div>
+          </dl>
 
-          {/* Quick Stats Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-slate-50 border border-slate-200 rounded-sm text-xs">
-            <div className="flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
-              <div>
-                <span className="text-slate-400 block">Location</span>
-                <strong className="text-slate-800">{job.address || job.locationArea}</strong>
-              </div>
-            </div>
+          {active ? (
+            <ApplyModalWrapper job={job} whatsappUrl={whatsappUrl} shareUrl={shareUrl} />
+          ) : (
+            <p role="status" className="p-4 bg-amber-50 border border-amber-300 rounded-sm text-amber-900 font-semibold">
+              This vacancy is closed and no longer accepting applications.{" "}
+              <Link href={area ? `/jobs-in/${area.slug}` : "/jobs"} className="underline">
+                See open jobs{area ? ` in ${area.name}` : ""}
+              </Link>
+              .
+            </p>
+          )}
 
-            <div className="flex items-center gap-2">
-              <Banknote className="w-4 h-4 text-emerald-600 shrink-0" />
-              <div>
-                <span className="text-slate-400 block">Monthly Salary</span>
-                <strong className="text-slate-800">{formatSalary()}</strong>
-              </div>
-            </div>
+          <section className="space-y-3 pt-4 border-t border-slate-200" aria-labelledby="job-description">
+            <h2 id="job-description" className="text-xl font-bold text-slate-900">Job description</h2>
+            <div className="text-base text-slate-800 leading-relaxed whitespace-pre-line">{job.description}</div>
+          </section>
 
-            <div className="flex items-center gap-2">
-              <Briefcase className="w-4 h-4 text-emerald-600 shrink-0" />
-              <div>
-                <span className="text-slate-400 block">Job Category</span>
-                <strong className="text-slate-800">{job.category}</strong>
-              </div>
-            </div>
-          </div>
-
-          {/* Interactive Apply Actions Container */}
-          <ApplyModalWrapper job={job} whatsappUrl={whatsappUrl} />
-
-          {/* Job Description */}
-          <div className="space-y-4 pt-4 border-t border-slate-100">
-            <h2 className="text-lg font-bold text-slate-900">Job Description</h2>
-            <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
-              {job.description}
-            </div>
-          </div>
-
-          {/* Requirements List */}
           {job.requirements && job.requirements.length > 0 && (
-            <div className="space-y-3 pt-4 border-t border-slate-100">
-              <h2 className="text-lg font-bold text-slate-900">Requirements & Qualifications</h2>
+            <section className="space-y-3 pt-4 border-t border-slate-200" aria-labelledby="job-requirements">
+              <h2 id="job-requirements" className="text-xl font-bold text-slate-900">Requirements</h2>
               <ul className="space-y-2">
                 {job.requirements.map((req, idx) => (
-                  <li key={idx} className="flex items-start gap-2.5 text-sm text-slate-700">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <li key={idx} className="flex items-start gap-2.5 text-base text-slate-800">
+                    <CheckCircle2 className="w-4 h-4 text-brand-green shrink-0 mt-1" aria-hidden="true" />
                     <span>{req}</span>
                   </li>
                 ))}
               </ul>
-            </div>
+            </section>
           )}
 
-          {/* Verification & Trust Disclaimer */}
-          <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-sm text-xs text-emerald-900 space-y-1">
-            <p className="font-bold flex items-center gap-1.5 text-emerald-800">
-              <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              Safety Guarantee on Illy Jobs
+          <aside className="p-4 bg-emerald-50 border border-emerald-200 rounded-sm text-sm space-y-1" aria-label="Safety advice">
+            <p className="font-bold flex items-center gap-1.5 text-emerald-900">
+              <ShieldCheck className="w-4 h-4" aria-hidden="true" />
+              Stay safe
             </p>
-            <p className="text-slate-600">
-              Never pay any fee for job applications, medical tests, or training in Ilorin. Illy Jobs strictly verifies employers to prevent recruitment fraud.
+            <p className="text-slate-800">
+              Never pay a fee for a job application, interview, medical test or training. If an employer asks
+              you for money, do not pay and report the listing to Illy Jobs.
             </p>
-          </div>
-        </div>
+          </aside>
+        </article>
 
-        {/* Similar Jobs in this Area */}
         {similarJobs.length > 0 && (
-          <div className="space-y-4 pt-4">
-            <h2 className="text-lg font-bold text-slate-900">
-              More Vacancies in {job.locationArea}
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <section className="space-y-4 pt-4" aria-labelledby="similar-jobs">
+            <h2 id="similar-jobs" className="text-xl font-bold text-slate-900">More jobs in {job.locationArea}</h2>
+            <ul className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {similarJobs.map((simJob) => (
-                <div key={simJob.id} className="bg-white border border-slate-200 rounded-sm p-4 text-xs space-y-2 shadow-sm">
-                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-sm">
-                    {simJob.locationArea}
-                  </span>
-                  <h3 className="font-bold text-slate-900 line-clamp-1">{simJob.title}</h3>
-                  <p className="text-slate-500">{simJob.company}</p>
-                  <Link
-                    href={`/jobs/${simJob.slug}`}
-                    className="inline-block pt-1 font-semibold text-emerald-600 hover:text-emerald-700"
-                  >
-                    View Role →
-                  </Link>
-                </div>
+                <li key={simJob.id} className="bg-white border border-slate-200 rounded-sm p-4 space-y-1 shadow-sm">
+                  <h3 className="font-bold text-slate-900">
+                    <Link href={`/jobs/${simJob.slug}`} className="hover:underline">{simJob.title}</Link>
+                  </h3>
+                  <p className="text-sm text-slate-700">{simJob.company}</p>
+                  <p className="text-sm font-semibold text-slate-900">{formatSalary(simJob.salaryMin, simJob.salaryMax)}</p>
+                </li>
               ))}
-            </div>
-          </div>
+            </ul>
+          </section>
         )}
-
       </div>
     </>
   );

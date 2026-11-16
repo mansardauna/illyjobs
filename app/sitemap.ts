@@ -1,46 +1,41 @@
-import { MetadataRoute } from "next";
+import type { MetadataRoute } from "next";
 import { getJobs } from "@/lib/db/jobs";
+import { AREA_PAGES, CATEGORY_PAGES } from "@/lib/seo/landing";
+import { SITE_URL } from "@/lib/site";
+
+// Rebuild hourly so newly posted jobs appear and closed ones drop out.
+export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = "https://illyjobs.ng";
+  const jobs = await getJobs(); // live jobs only
+  const newest = jobs.reduce<string | undefined>(
+    (latest, job) => (!latest || job.postedAt > latest ? job.postedAt : latest),
+    undefined
+  );
+  const listingsUpdated = newest || new Date().toISOString();
 
-  // Static routes
-  const routes = [
-    "",
-    "/jobs",
-    "/post-job",
-  ].map((route) => ({
-    url: `${baseUrl}${route}`,
-    lastModified: new Date().toISOString(),
-    changeFrequency: "daily" as const,
-    priority: route === "" ? 1.0 : 0.8,
-  }));
+  const staticRoutes: MetadataRoute.Sitemap = [
+    { url: SITE_URL, lastModified: listingsUpdated, changeFrequency: "daily", priority: 1 },
+    { url: `${SITE_URL}/jobs`, lastModified: listingsUpdated, changeFrequency: "hourly", priority: 0.9 },
+    { url: `${SITE_URL}/pricing`, changeFrequency: "monthly", priority: 0.4 },
+  ];
 
-  // Dynamic Job routes
-  const jobs = await getJobs();
-  const jobRoutes = jobs.map((job) => ({
-    url: `${baseUrl}/jobs/${job.slug}`,
-    lastModified: job.postedAt,
-    changeFrequency: "weekly" as const,
-    priority: 0.9,
-  }));
-
-  // Dynamic Location routes for SEO
-  const locations = [
-    "Tanke",
-    "GRA",
-    "Taiwo",
-    "Challenge",
-    "Fate",
-    "Asa Dam",
-    "Sango",
-    "Kwara Poly",
-  ].map((loc) => ({
-    url: `${baseUrl}/jobs?location=${encodeURIComponent(loc)}`,
-    lastModified: new Date().toISOString(),
+  const landingRoutes: MetadataRoute.Sitemap = [
+    ...AREA_PAGES.map((a) => `/jobs-in/${a.slug}`),
+    ...CATEGORY_PAGES.map((c) => `/job-categories/${c.slug}`),
+  ].map((path) => ({
+    url: `${SITE_URL}${path}`,
+    lastModified: listingsUpdated,
     changeFrequency: "daily" as const,
     priority: 0.8,
   }));
 
-  return [...routes, ...jobRoutes, ...locations];
+  const jobRoutes: MetadataRoute.Sitemap = jobs.map((job) => ({
+    url: `${SITE_URL}/jobs/${job.slug}`,
+    lastModified: job.postedAt,
+    changeFrequency: "weekly" as const,
+    priority: 0.7,
+  }));
+
+  return [...staticRoutes, ...landingRoutes, ...jobRoutes];
 }

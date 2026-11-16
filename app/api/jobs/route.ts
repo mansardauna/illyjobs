@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { getJobs, createJob } from "@/lib/db/jobs";
+import { getJobs, createJob, countActiveJobsByEmployer } from "@/lib/db/jobs";
+import { getSessionUser } from "@/lib/auth/session";
+import { FREE_EMPLOYER_JOB_LIMIT } from "@/lib/constants";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -21,10 +23,30 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const employer = await getSessionUser();
+    if (!employer || (employer.role !== "EMPLOYER" && employer.role !== "ADMIN")) {
+      return NextResponse.json(
+        { success: false, error: "Please sign in with an employer account to post a job." },
+        { status: 401 }
+      );
+    }
+
+    const isPro = employer.planTier === "PRO" || employer.role === "ADMIN";
+    if (!isPro && (await countActiveJobsByEmployer(employer.id)) >= FREE_EMPLOYER_JOB_LIMIT) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Free plan limit reached (${FREE_EMPLOYER_JOB_LIMIT} live jobs). Upgrade to Employer Pro for unlimited postings.`,
+        },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
+    const company = employer.companyName || body.company;
 
     // Basic validation
-    if (!body.title || !body.company || !body.locationArea || !body.category || !body.description) {
+    if (!body.title || !company || !body.locationArea || !body.category || !body.description) {
       return NextResponse.json(
         { success: false, error: "Missing required fields" },
         { status: 400 }
@@ -32,9 +54,10 @@ export async function POST(request: Request) {
     }
 
     const newJob = await createJob({
+      employerId: employer.id,
       title: body.title,
-      company: body.company,
-      companyLogo: body.companyLogo || "https://images.unsplash.com/photo-1549923746-c502d488b3ea?auto=format&fit=crop&w=120&h=120&q=80",
+      company,
+      companyLogo: employer.companyLogo || undefined,
       locationArea: body.locationArea,
       address: body.address || `${body.locationArea}, Ilorin, Kwara State`,
       category: body.category,
@@ -49,12 +72,15 @@ export async function POST(request: Request) {
       preferredChannel: body.preferredChannel || "PLATFORM",
       whatsappPhone: body.whatsappPhone || undefined,
       contactEmail: body.contactEmail || undefined,
-      isVerified: true, // Auto-verify for quick local testing
-      isFeatured: Boolean(body.isFeatured),
+      // Trust badges come from the account, never from the request body.
+      isVerified: Boolean(employer.isVerified),
+      isFeatured: isPro && Boolean(body.isFeatured),
+      isProEmployer: isPro,
     });
 
     return NextResponse.json({ success: true, job: newJob });
   } catch (error) {
+    console.error("Failed to create job:", error);
     return NextResponse.json(
       { success: false, error: "Failed to create job posting" },
       { status: 500 }

@@ -1,16 +1,21 @@
 "use client";
 
-import React, { InputHTMLAttributes, ReactNode } from "react";
+import React, { InputHTMLAttributes, ReactNode, useId } from "react";
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   icon?: ReactNode;
   error?: string;
+  hint?: string;
 }
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ label, icon, error, className = "", id, ...props }, ref) => {
-    const inputId = id || (label ? label.toLowerCase().replace(/\s+/g, "-") : undefined);
+  ({ label, icon, error, hint, className = "", id, ...props }, ref) => {
+    const generatedId = useId();
+    const inputId = id || generatedId;
+    const errorId = `${inputId}-error`;
+    const hintId = `${inputId}-hint`;
+    const describedBy = [error ? errorId : null, hint ? hintId : null].filter(Boolean).join(" ") || undefined;
 
     return (
       <div className="w-full space-y-1">
@@ -22,7 +27,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
 
         <div className="relative flex items-center w-full">
           {icon && (
-            <div className="absolute left-3.5 flex items-center justify-center text-slate-400 pointer-events-none z-10">
+            <div className="absolute left-3.5 flex items-center justify-center text-slate-500 pointer-events-none z-10" aria-hidden="true">
               {icon}
             </div>
           )}
@@ -30,14 +35,17 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           <input
             ref={ref}
             id={inputId}
-            className={`w-full py-3 bg-slate-50 border border-slate-300 rounded-sm text-base text-slate-900 placeholder-slate-400 transition-colors focus:bg-white focus:outline-none focus:border-brand-green ${
+            aria-invalid={error ? true : undefined}
+            aria-describedby={describedBy}
+            className={`w-full py-3 bg-slate-50 border border-slate-400 rounded-sm text-base text-slate-900 placeholder-slate-500 transition-colors focus:bg-white focus:border-brand-green ${
               icon ? "pl-11 pr-4" : "px-4"
-            } ${error ? "border-rose-500" : ""} ${className}`}
+            } ${error ? "border-rose-600" : ""} ${className}`}
             {...props}
           />
         </div>
 
-        {error && <p className="text-xs font-semibold text-rose-600 mt-1">{error}</p>}
+        {hint && !error && <p id={hintId} className="text-xs text-slate-600">{hint}</p>}
+        {error && <p id={errorId} className="text-xs font-semibold text-rose-700 mt-1">{error}</p>}
       </div>
     );
   }

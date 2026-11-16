@@ -1,28 +1,25 @@
 "use client";
 
 import { useState } from "react";
-import { MessageCircle, Send } from "lucide-react";
+import { MessageCircle, Send, Share2 } from "lucide-react";
 import ApplyModal from "@/components/ApplyModal";
-import { Job } from "@/lib/db/jobs";
+import type { Job } from "@/lib/db/jobs";
 
 interface ApplyModalWrapperProps {
   job: Job;
   whatsappUrl: string | null;
+  shareUrl: string;
 }
 
-export default function ApplyModalWrapper({ job, whatsappUrl }: ApplyModalWrapperProps) {
+export default function ApplyModalWrapper({ job, whatsappUrl, shareUrl }: ApplyModalWrapperProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
     <>
       <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          onClick={() => setIsOpen(true)}
-          className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-sm shadow-sm transition-colors flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
-        >
-          <Send className="w-4 h-4" />
-          <span>Apply Now on Illy Jobs</span>
+        <button type="button" onClick={() => setIsOpen(true)} className="btn-primary gap-2">
+          <Send className="w-4 h-4" aria-hidden="true" />
+          Apply now
         </button>
 
         {whatsappUrl && (
@@ -30,12 +27,24 @@ export default function ApplyModalWrapper({ job, whatsappUrl }: ApplyModalWrappe
             href={whatsappUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="px-6 py-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-sm rounded-sm shadow-sm transition-colors flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-emerald-600"
+            className="inline-flex items-center gap-2 px-5 py-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-400 font-semibold text-base rounded-sm shadow-sm transition-colors"
           >
-            <MessageCircle className="w-4 h-4 text-emerald-600" />
-            <span>Apply via WhatsApp</span>
+            <MessageCircle className="w-4 h-4" aria-hidden="true" />
+            Apply on WhatsApp
+            <span className="sr-only"> (opens in a new tab)</span>
           </a>
         )}
+
+        <a
+          href={shareUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn-secondary gap-2"
+        >
+          <Share2 className="w-4 h-4" aria-hidden="true" />
+          Share on WhatsApp
+          <span className="sr-only"> (opens in a new tab)</span>
+        </a>
       </div>
 
       <ApplyModal job={job} isOpen={isOpen} onClose={() => setIsOpen(false)} />

@@ -6,21 +6,9 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/context/AuthContext";
 import { Mail, Lock, Phone, User, Building, MapPin } from "lucide-react";
 import { Input, Select, Button, AlertBanner } from "@/components/ui";
-import ResumeUploader from "@/components/ResumeUploader";
-
-const LOCATIONS = [
-  "Tanke / Unilorin Axis",
-  "GRA",
-  "Taiwo / Post Office",
-  "Challenge / Unity",
-  "Fate / Airport Road",
-  "Asa Dam / Sawmill",
-  "Sango / Kulende",
-  "Ganmo / Kilanko",
-  "Oke-Oyi",
-  "Kwara Poly / Elekoyangan",
-  "Offa Garage",
-];
+import ResumeUploader, { uploadResume } from "@/components/ResumeUploader";
+import { LOCATIONS } from "@/lib/constants";
+import { getNextPath } from "@/lib/navigation";
 
 interface RoleToggleProps {
   value: "JOB_SEEKER" | "EMPLOYER";
@@ -29,14 +17,15 @@ interface RoleToggleProps {
 
 function RoleToggle({ value, onChange }: RoleToggleProps) {
   return (
-    <div className="bg-slate-200 p-1 rounded-sm grid grid-cols-2 text-sm font-semibold">
+    <div role="group" aria-label="Account type" className="bg-slate-200 p-1 rounded-sm grid grid-cols-2 text-sm font-semibold">
       {(["JOB_SEEKER", "EMPLOYER"] as const).map((r) => (
         <button
           key={r}
           type="button"
+          aria-pressed={value === r}
           onClick={() => onChange(r)}
           className={`py-2 rounded-sm transition-colors ${
-            value === r ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"
+            value === r ? "bg-white text-slate-900 shadow-sm" : "text-slate-700 hover:text-slate-900"
           }`}
         >
           {r === "JOB_SEEKER" ? "Job Seeker Account" : "Employer Account"}
@@ -57,8 +46,7 @@ export default function RegisterPage() {
   const [companyName, setCompanyName] = useState("");
   const [phone, setPhone] = useState("");
   const [locationArea, setLocationArea] = useState(LOCATIONS[0]);
-  const [resumeUrl, setResumeUrl] = useState("");
-  const [resumeFileName, setResumeFileName] = useState("");
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -84,8 +72,17 @@ export default function RegisterPage() {
       const data = await res.json();
 
       if (data.success && data.user) {
-        login({ ...data.user, resumeUrl: resumeUrl || undefined, resumeFileName: resumeFileName || undefined });
-        router.push(role === "EMPLOYER" ? "/post-job" : "/jobs");
+        let account = data.user;
+        // The account now exists, so the chosen CV can be stored against it.
+        if (role === "JOB_SEEKER" && resumeFile) {
+          try {
+            account = await uploadResume(resumeFile);
+          } catch (uploadError) {
+            console.error("CV upload after sign-up failed:", uploadError);
+          }
+        }
+        login(account);
+        router.push(getNextPath(role === "EMPLOYER" ? "/post-job" : "/jobs"));
       } else {
         setErrorMsg(data.error || "Registration failed.");
       }
@@ -116,7 +113,8 @@ export default function RegisterPage() {
 
         {role === "JOB_SEEKER" ? (
           <Input
-            label="Full Name *"
+            label="Full name (required)"
+            autoComplete="name"
             type="text"
             required
             icon={<User className="w-5 h-5" />}
@@ -126,7 +124,8 @@ export default function RegisterPage() {
           />
         ) : (
           <Input
-            label="Company / Business Name *"
+            label="Company or business name (required)"
+            autoComplete="organization"
             type="text"
             required
             icon={<Building className="w-5 h-5" />}
@@ -138,7 +137,8 @@ export default function RegisterPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
-            label="Email Address *"
+            label="Email address (required)"
+            autoComplete="email"
             type="email"
             required
             icon={<Mail className="w-5 h-5" />}
@@ -147,7 +147,8 @@ export default function RegisterPage() {
             placeholder="email@example.com"
           />
           <Input
-            label="WhatsApp / Phone *"
+            label="WhatsApp or phone (required)"
+            autoComplete="tel"
             type="tel"
             required
             icon={<Phone className="w-5 h-5" />}
@@ -158,7 +159,7 @@ export default function RegisterPage() {
         </div>
 
         <Select
-          label="Ilorin Area *"
+          label="Your area in Ilorin"
           icon={<MapPin className="w-5 h-5" />}
           value={locationArea}
           onChange={(e) => setLocationArea(e.target.value)}
@@ -166,19 +167,23 @@ export default function RegisterPage() {
         />
 
         <Input
-          label="Password *"
+          label="Password (required, at least 8 characters)"
+          autoComplete="new-password"
           type="password"
           required
           icon={<Lock className="w-5 h-5" />}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="Minimum 6 characters"
+          minLength={8}
+          placeholder="••••••••"
         />
 
         {role === "JOB_SEEKER" && (
           <div className="pt-2 border-t border-slate-100">
             <ResumeUploader
-              onFileSelect={(url, name) => { setResumeUrl(url); setResumeFileName(name); }}
+              mode="deferred"
+              onFilePicked={setResumeFile}
+              label="CV / Resume (optional, PDF or Word)"
             />
           </div>
         )}

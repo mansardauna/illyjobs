@@ -63,10 +63,7 @@ export default function ResumeSearchPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6">
         <div>
-          <span
-            className="px-2.5 py-1 text-white text-xs font-bold rounded-sm uppercase tracking-wider inline-block mb-2"
-            style={{ backgroundColor: "#6FBE44" }}
-          >
+          <span className="px-2.5 py-1 text-white text-xs font-bold rounded-sm uppercase tracking-wider inline-block mb-2 bg-brand-green">
             Employer Pro Database
           </span>
           <h1 className="text-3xl font-extrabold font-heading text-slate-900 tracking-tight">
@@ -108,7 +105,9 @@ export default function ResumeSearchPage() {
       <div className="bg-white border border-slate-200 rounded-sm p-4 shadow-sm grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
         <div className="md:col-span-7">
           <Input
-            icon={<Search className="w-5 h-5 text-slate-400" />}
+            type="search"
+            aria-label="Search candidates by skill"
+            icon={<Search className="w-5 h-5 text-slate-500" />}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search candidate skills (e.g. Next.js, Mathematics, Nursing, Sales)..."
@@ -117,7 +116,8 @@ export default function ResumeSearchPage() {
 
         <div className="md:col-span-5">
           <Select
-            icon={<MapPin className="w-5 h-5 text-slate-400" />}
+            aria-label="Area"
+            icon={<MapPin className="w-5 h-5 text-slate-500" />}
             value={location}
             onChange={(e) => setLocation(e.target.value)}
             options={locationOptions}
@@ -149,7 +149,7 @@ export default function ResumeSearchPage() {
                     <span className="text-xs font-semibold text-brand-green">{cand.locationArea}</span>
                   </div>
                   {cand.planTier === "PRO" && (
-                    <span className="px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-300 text-[10px] font-bold rounded-sm">
+                    <span className="px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-300 text-xs font-bold rounded-sm">
                       Top Applicant
                     </span>
                   )}
@@ -160,7 +160,7 @@ export default function ResumeSearchPage() {
                 {cand.skills && cand.skills.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 pt-1">
                     {cand.skills.map((sk) => (
-                      <span key={sk} className="px-2 py-0.5 bg-slate-100 text-slate-700 text-[11px] rounded-sm font-medium">
+                      <span key={sk} className="px-2 py-0.5 bg-slate-100 text-slate-700 text-xs rounded-sm font-medium">
                         {sk}
                       </span>
                     ))}
@@ -170,21 +170,19 @@ export default function ResumeSearchPage() {
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
                 <span className="text-xs text-slate-500 flex items-center gap-1">
-                  <FileText className="w-3.5 h-3.5 text-slate-400" />
+                  <FileText className="w-3.5 h-3.5 text-slate-500" />
                   {cand.resumeFileName || "Resume CV"}
                 </span>
 
                 {isProEmployer ? (
                   <a
-                    href={cand.resumeUrl || "#"}
-                    target="_blank"
-                    download
+                    href={`/api/files/resume?userId=${cand.id}`}
                     className="inline-flex items-center gap-1 text-xs font-bold text-brand-green hover:underline"
                   >
-                    <Download className="w-3.5 h-3.5" /> Download CV
+                    <Download className="w-3.5 h-3.5" aria-hidden="true" /> Download CV<span className="sr-only"> of {cand.fullName}</span>
                   </a>
                 ) : (
-                  <span className="text-[11px] font-semibold text-slate-400 flex items-center gap-1">
+                  <span className="text-xs font-semibold text-slate-500 flex items-center gap-1">
                     <Lock className="w-3 h-3" /> Pro Only
                   </span>
                 )}
